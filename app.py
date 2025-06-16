@@ -52,7 +52,7 @@ def download_qr(container_id):
 @app.route('/get_content')
 def get_content():
     cid = request.args.get('container')
-    with sqlite3.connect(DB_PATH) as conn:
+    with sqlite3.connect('containers.db') as conn:
         cur = conn.execute("SELECT content FROM containers WHERE id=?", (cid,))
         row = cur.fetchone()
     return row[0] if row else "No content found."
