@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Container Contents</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 50px; font-size: 20px; }
+  </style>
+</head>
+<body>
+  <h2>Container Contents</h2>
+  <div id="output">Authenticating...</div>
+
+  <script>
+    const containerId = new URLSearchParams(window.location.search).get("container");
+
+    async function getContents() {
+      const response = await fetch("/get_content?container=" + containerId);
+      const data = await response.text();
+      document.getElementById("output").textContent = data;
+    }
+
+    getContents();
+  </script>
+</body>
+</html>
