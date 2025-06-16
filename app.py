@@ -18,6 +18,7 @@ def init_db():
             )
         """)
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -76,7 +77,6 @@ def generate_qr_with_label(data, label):
     draw.text(((img_qr.width - text_width) // 2, img_qr.height + 10), label, fill="black", font=font)
 
     return new_img
-
+init_db()
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True)
