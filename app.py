@@ -57,23 +57,27 @@ def get_content():
         row = cur.fetchone()
     return row[0] if row else "No content found."
 
-def generate_qr_with_label(data, label):
-    qr = qrcode.QRCode(
-        version=1, error_correction=qrcode.constants.ERROR_CORRECT_H,
-        box_size=10, border=4
-    )
-    qr.add_data(data)
-    qr.make(fit=True)
-    img_qr = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+def generate_qr_with_label(url, label):
+    qr = qrcode.make(url)
+    qr = qr.convert("RGB")
 
+    draw = ImageDraw.Draw(qr)
     font = ImageFont.load_default()
-    label_height = 40
-    new_img = Image.new("RGB", (img_qr.width, img_qr.height + label_height), "white")
-    new_img.paste(img_qr, (0, 0))
 
-    draw = ImageDraw.Draw(new_img)
-    text_width, _ = draw.textsize(label, font=font)
-    draw.text(((img_qr.width - text_width) // 2, img_qr.height + 10), label, fill="black", font=font)
+    # Use textbbox instead of textsize
+    bbox = draw.textbbox((0, 0), label, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+
+    # Add space at bottom for label
+    total_height = qr.height + text_height + 10
+    result = Image.new("RGB", (qr.width, total_height), "white")
+    result.paste(qr, (0, 0))
+    draw = ImageDraw.Draw(result)
+    draw.text(((qr.width - text_width) // 2, qr.height + 5), label, fill="black", font=font)
+
+    return result
+
 
     return new_img
 init_db()
