@@ -34,7 +34,7 @@ def view():
 def add_container():
     cid = request.form['container_id']
     content = request.form['contents']
-    with sqlite3.connect(DB_PATH) as conn:
+    with sqlite3.connect('containers.db') as conn:
         conn.execute("INSERT OR REPLACE INTO containers (id, content) VALUES (?, ?)", (cid, content))
     return redirect(url_for('download_qr', container_id=cid))
 
