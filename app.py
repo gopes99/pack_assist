@@ -6,17 +6,16 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 
 app = Flask(__name__)
-DB_PATH = "database.db"
 
-# Ensure DB exists
+# Always run init_db, even on Render
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS containers (
-                id TEXT PRIMARY KEY,
-                content TEXT
-            )
-        """)
+    conn = sqlite3.connect("containers.db")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS containers (id TEXT PRIMARY KEY, content TEXT)"
+    )
+    conn.close()
+
+init_db()  # <<< this is the important part, outside __main__
 
 
 @app.route('/')
