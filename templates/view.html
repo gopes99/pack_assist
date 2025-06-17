@@ -2,25 +2,52 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Container Contents</title>
+  <title>View Container</title>
   <style>
     body { font-family: sans-serif; text-align: center; margin-top: 50px; font-size: 20px; }
   </style>
 </head>
 <body>
-  <h2>Container Contents</h2>
-  <div id="output">Authenticating...</div>
+  <h2>Authenticate to View Container</h2>
+  <div id="result">Waiting for Face ID / Fingerprint...</div>
 
   <script>
-    const containerId = new URLSearchParams(window.location.search).get("container");
-
-    async function getContents() {
-      const response = await fetch("/get_content?container=" + containerId);
-      const data = await response.text();
-      document.getElementById("output").textContent = data;
+    function base64ToArrayBuffer(base64) {
+      const binary = atob(base64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes.buffer;
     }
 
-    getContents();
+    async function authenticate() {
+      const res = await fetch('/auth-credentials');
+      const allowed = await res.json();
+
+      const allowCredentials = allowed.map(id => ({
+        id: base64ToArrayBuffer(id),
+        type: "public-key",
+        transports: ["internal"]
+      }));
+
+      try {
+        const assertion = await navigator.credentials.get({
+          publicKey: {
+            challenge: crypto.getRandomValues(new Uint8Array(32)),
+            allowCredentials,
+            timeout: 60000,
+            userVerification: "required"
+          }
+        });
+
+        document.getElementById("result").innerText = "✅ Access Granted!\n(Proceed to show contents...)";
+        // TODO: Load actual contents based on URL param or container ID
+      } catch (err) {
+        document.getElementById("result").innerText = "❌ Access Denied:\n" + err;
+      }
+    }
+
+    authenticate();
   </script>
 </body>
 </html>
