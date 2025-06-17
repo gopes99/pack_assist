@@ -26,9 +26,12 @@ def init_db():
     conn.commit()
     conn.close()
 
-@app.before_first_request
-def initialize():
+app = Flask(__name__)
+
+# Initialize DB on startup (instead of @app.before_first_request)
+with app.app_context():
     init_db()
+
 
 # ====== Home (QR Generator) ======
 @app.route("/", methods=["GET"])
