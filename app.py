@@ -1,102 +1,121 @@
-from flask import Flask, render_template, request, redirect, send_file, jsonify
-import qrcode
+from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify
 import sqlite3
-import os
+import qrcode
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
-from urllib.parse import quote
+import base64
+import os
 
 app = Flask(__name__)
-DATABASE = 'containers.db'
 
-# Ensure database and tables exist
+# ====== Database Initialization ======
 def init_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.execute('CREATE TABLE IF NOT EXISTS containers (id TEXT PRIMARY KEY, content TEXT)')
-    conn.execute('CREATE TABLE IF NOT EXISTS users (username TEXT, credential_id TEXT)')
+    conn = sqlite3.connect("database.db")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS containers (
+            id TEXT PRIMARY KEY,
+            content TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS credentials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            credential_id TEXT NOT NULL
+        )
+    """)
     conn.commit()
     conn.close()
 
-@app.route('/')
+@app.before_first_request
+def initialize():
+    init_db()
+
+# ====== Home (QR Generator) ======
+@app.route("/", methods=["GET"])
 def index():
-    conn = sqlite3.connect(DATABASE)
+    conn = sqlite3.connect("database.db")
     containers = conn.execute("SELECT * FROM containers").fetchall()
     conn.close()
-    return render_template('index.html', containers=containers)
+    return render_template("index.html", containers=containers)
 
-@app.route('/add', methods=['POST'])
+# ====== Add Container ======
+@app.route("/add", methods=["POST"])
 def add_container():
-    cid = request.form['container_id']
-    content = request.form['content']
-    conn = sqlite3.connect(DATABASE)
+    cid = request.form["container_id"]
+    content = request.form["content"]
+    conn = sqlite3.connect("database.db")
     conn.execute("INSERT OR REPLACE INTO containers (id, content) VALUES (?, ?)", (cid, content))
     conn.commit()
     conn.close()
-    return redirect('/')
+    return redirect(url_for("index"))
 
-@app.route('/download/<container_id>')
-def download_qr(container_id):
-    container_id = container_id.strip()
-    url = request.host_url + 'view.html?cid=' + quote(container_id)
-    img = generate_qr_with_label(url, container_id)
-    buf = BytesIO()
-    img.save(buf, format='PNG')
-    buf.seek(0)
-    return send_file(buf, mimetype='image/png', as_attachment=True, download_name=f"{container_id}.png")
-
+# ====== QR Generation with Label ======
 def generate_qr_with_label(url, label):
     qr = qrcode.QRCode(box_size=10, border=4)
     qr.add_data(url)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
+    img_qr = qr.make_image(fill="black", back_color="white").convert("RGB")
 
+    draw = ImageDraw.Draw(img_qr)
     font = ImageFont.load_default()
-    draw = ImageDraw.Draw(img)
-    text_width, text_height = draw.textbbox((0, 0), label, font=font)[2:]
-    width, height = img.size
-    new_img = Image.new("RGB", (width, height + 30), "white")
-    new_img.paste(img, (0, 0))
+
+    # Calculate label size
+    text_width = draw.textlength(label, font=font)
+    text_height = 10
+
+    new_img = Image.new("RGB", (img_qr.width, img_qr.height + text_height + 10), "white")
+    new_img.paste(img_qr, (0, 0))
     draw = ImageDraw.Draw(new_img)
-    draw.text(((width - text_width) / 2, height + 5), label, font=font, fill="black")
+    draw.text(((new_img.width - text_width) // 2, img_qr.height + 5), label, fill="black", font=font)
 
     return new_img
 
-@app.route('/register', methods=['POST'])
-def register():
+# ====== QR Download Endpoint ======
+@app.route("/download/<container_id>")
+def download_qr(container_id):
+    url = request.url_root + f"static/view.html?id={container_id}"
+    img = generate_qr_with_label(url, container_id)
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    return send_file(buffer, mimetype="image/png", as_attachment=True, download_name=f"{container_id}.png")
+
+# ====== Credential Registration ======
+@app.route("/register_credential", methods=["POST"])
+def register_credential():
     data = request.get_json()
-    username = data.get('username')
-    credential_id = data.get('credential_id')
+    credential_id = data.get("credential_id")
+    if not credential_id:
+        return jsonify({"status": "error", "message": "Missing credential_id"}), 400
 
-    if not username or not credential_id:
-        return "Missing data", 400
-
-    conn = sqlite3.connect(DATABASE)
-    conn.execute("INSERT INTO users (username, credential_id) VALUES (?, ?)", (username, credential_id))
+    conn = sqlite3.connect("database.db")
+    conn.execute("INSERT INTO credentials (credential_id) VALUES (?)", (credential_id,))
     conn.commit()
     conn.close()
 
-    return "Registration successful!"
+    return jsonify({"status": "ok"})
 
-@app.route('/auth-credentials')
-def auth_credentials():
-    conn = sqlite3.connect(DATABASE)
-    cur = conn.cursor()
-    cur.execute("SELECT credential_id FROM users")
-    credentials = [row[0] for row in cur.fetchall()]
+# ====== List of Allowed Credentials ======
+@app.route("/allowed_credentials", methods=["GET"])
+def allowed_credentials():
+    conn = sqlite3.connect("database.db")
+    rows = conn.execute("SELECT credential_id FROM credentials").fetchall()
     conn.close()
-    return jsonify(credentials)
+    ids = [r[0] for r in rows]
+    return jsonify({"allowed": ids})
 
-@app.route('/get-content/<container_id>')
-def get_content(container_id):
-    conn = sqlite3.connect(DATABASE)
-    cur = conn.cursor()
-    cur.execute("SELECT content FROM containers WHERE id = ?", (container_id,))
-    row = cur.fetchone()
+# ====== Get Container Content (View page fetches this) ======
+@app.route("/get_container/<cid>", methods=["GET"])
+def get_container(cid):
+    conn = sqlite3.connect("database.db")
+    row = conn.execute("SELECT content FROM containers WHERE id=?", (cid,)).fetchone()
     conn.close()
     if row:
-        return row[0]
-    return "Not found", 404
+        return jsonify({"status": "ok", "content": row[0]})
+    else:
+        return jsonify({"status": "error", "message": "Not found"}), 404
 
+# ====== Run Local Dev Server ======
 if __name__ == "__main__":
     init_db()
     app.run(debug=True)
