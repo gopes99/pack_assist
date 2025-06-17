@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 from urllib.parse import quote
 
 app = Flask(__name__)
-DATABASE = 'data.db'
+DATABASE = 'containers.db'
 
 # Ensure database and tables exist
 def init_db():
