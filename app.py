@@ -117,6 +117,12 @@ def get_container(cid):
         return jsonify({"status": "ok", "content": row[0]})
     else:
         return jsonify({"status": "error", "message": "Not found"}), 404
+# ========== Register Page ===========
+@app.route('/register')
+def register():
+    return render_template('register.html')
+
+
 
 # ====== Run Local Dev Server ======
 if __name__ == "__main__":
