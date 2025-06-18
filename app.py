@@ -74,8 +74,9 @@ def generate_qr_with_label(url, label):
     return new_img
 
 # ====== QR Download Endpoint ======
-@app.route("/download/<container_id>")
+@app.route("/download/<path:container_id>")
 def download_qr(container_id):
+    print("QR requested for:", container_id)
     url = request.url_root + f"static/view.html?id={container_id}"
     img = generate_qr_with_label(url, container_id)
     buffer = BytesIO()
