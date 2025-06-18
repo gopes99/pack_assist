@@ -27,7 +27,7 @@ def get_db():
 def index():
     return render_template("index.html")
 
-@app.route("/generate", methods=["POST"])
+@app.route("/generate_qr", methods=["POST"])
 def generate_qr():
     container_id = request.form.get("container_id")
     contents = request.form.get("contents")
