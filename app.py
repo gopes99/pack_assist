@@ -118,9 +118,17 @@ def get_container(cid):
     else:
         return jsonify({"status": "error", "message": "Not found"}), 404
 # ========== Register Page ===========
-@app.route('/register')
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    return render_template('register.html')
+    if request.method == 'POST':
+        # Handle WebAuthn registration here
+        data = request.get_json()
+        # Process and store the credential in the DB
+        return jsonify({'status': 'ok'})
+
+    # On GET, serve the HTML page
+    return send_from_directory('static', 'register.html')
+
 
 
 
