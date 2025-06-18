@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Register</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      font-size: 1.5em;
+      margin: 2em;
+    }
+    input, button {
+      font-size: 1.2em;
+      margin: 0.5em 0;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Register with Face ID</h1>
+  <form id="register-form">
+    <input type="text" id="username" placeholder="Username" required>
+    <button type="submit">Register</button>
+  </form>
+  <script>
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const startResp = await fetch('/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `username=${encodeURIComponent(username)}`
+      });
+
+      const options = await startResp.arrayBuffer();
+      const cred = await navigator.credentials.create({ publicKey: CBOR.decode(options) });
+
+      const result = await fetch('/register/complete', {
+        method: 'POST',
+        body: CBOR.encode(cred)
+      });
+
+      const final = await result.arrayBuffer();
+      alert("Registered!");
+    });
+  </script>
+</body>
+</html>
